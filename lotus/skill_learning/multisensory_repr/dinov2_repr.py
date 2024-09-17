@@ -183,6 +183,7 @@ if __name__ == "__main__":
         embedding_file = h5py.File(embedding_name, "w")
         grp = embedding_file.create_group("data")
 
+        # for each demo, generate agent view and eye in hand feature embeddings as numpy arrays of shape (batch size, 1, channels * 2 (6?)) and save in corresponding hdf5
         for i in range(demo_num):
             agentview_images = safe_cuda(torch.from_numpy(f[f"data/demo_{i}/obs/agentview_rgb"][()].transpose(0, 3, 1, 2))).float()
             eye_in_hand_images = safe_cuda(torch.from_numpy(f[f"data/demo_{i}/obs/eye_in_hand_rgb"][()].transpose(0, 3, 1, 2))).float()

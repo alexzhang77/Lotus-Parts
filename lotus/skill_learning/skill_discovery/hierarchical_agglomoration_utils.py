@@ -33,6 +33,7 @@ class HierarchicalAgglomorativeTree():
         self.nodes = []
         self.edges = []
         self.node_indices = []
+        # Level 0 is leaf
         self.level_indices = {}
         self.graph = nx.Graph()
         self.root_node = None
@@ -233,9 +234,9 @@ class HierarchicalAgglomorativeTree():
                     # Pentaly with respect to the whole length
                     dist += (nodes[i].len + nodes[i+1].len) / (5. * len(nodes))
                 dist_seq.append(dist)
-
+            
             target_idx = dist_seq.index(min(dist_seq))
-
+            # #combine nodes by making new node of nodes with closest distance to each other
             new_node = Node(start_idx=nodes[target_idx].start_idx,
                             end_idx=nodes[target_idx+1].end_idx,
                             level=max(nodes[target_idx].level, nodes[target_idx+1].level) + 1,
@@ -249,6 +250,7 @@ class HierarchicalAgglomorativeTree():
             new_nodes = []
             visited_nodes = []
 
+            # replaces the two newly connected nodes with the new node for the next cycle
             for node in nodes:
                 parent_node = self.find_parent(node.idx)
                 if parent_node.idx not in visited_nodes:

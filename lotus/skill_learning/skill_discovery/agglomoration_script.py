@@ -131,6 +131,7 @@ def segment_footprint(start_idx, end_idx, embeddings, mode="mean"):
         raise ValueError("Unknown mode!")
     
 def assert_wrong_labeling(ep_subtasks_seq):
+    # Makes sure indices all connect
     for ep_idx in ep_subtasks_seq:
         ep_subtasks_seq[ep_idx].sort(key=seg_start_idx)
 
@@ -160,6 +161,7 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
             scale = cfg.agglomoration.scale
         else:
             scale = 1.0
+        # From the first level/layer with at least `segment_scale` amount of nodes, record each of their embedding footprints and locations 
         for (ep_idx, tree) in trees["trees"].items():
             embeddings = embedding_h5py_f[f"data/demo_{ep_idx}/embedding"][()]
 
@@ -208,7 +210,7 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
     labels = clustering.labels_
     print(clustering.get_params())
 
-    
+    # Assigns label to each node/segment (|>= segment_scale * demos * tasks|) across ALL demonstrations
     loc_dict = {}
     for (loc, label) in zip(locs, labels):
         if loc[0] not in loc_dict:
@@ -219,11 +221,13 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
 
     merge_nodes = []
     # max_len = 0
+    
     for dataset_idx in loc_dict:
         for ep_idx in loc_dict[dataset_idx]:
             previous_label = None
             start_idx = None
             end_idx = None
+            # Connect all sequential nodes that are the same label
             for (loc, label) in loc_dict[dataset_idx][ep_idx]:
                 dataset_name = dataset_name_list[dataset_idx]
                 with open(f"results/{cfg.exp_name}/skill_classification/trees/{dataset_name}_trees_{modality_str}_{cfg.agglomoration.footprint}_{cfg.agglomoration.dist}.pkl", "rb") as f:
@@ -297,6 +301,7 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
     for (loc, label) in zip(locs, labels):
         if label not in label_mapping and len(label_mapping) < K:
             label_mapping.append(label)
+    # labels are switched to the order they appeared in the reclustering (?)
     new_labels = []
     for label in labels:
         new_labels.append(label_mapping.index(label))
@@ -339,6 +344,7 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
             for ep_idx, ep_subtask_seq in ep_subtasks_seq[dataset_idx].items():
                 new_ep_subtask_seq = []
                 previous_label = None
+                # Connect all sequential segments that are the same label
                 for idx in range(len(ep_subtask_seq)):
                     if previous_label is None:
                         previous_label = ep_subtask_seq[idx].label
@@ -369,6 +375,7 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
                 new_ep_subtask_seq = []
                 idx = 0
                 embeddings = embedding_h5py_f[f"data/demo_{ep_idx}/embedding"][()]
+                # Merge all segments with label that did not meet threshold with segment before or after current
                 while idx < len(ep_subtask_seq):
                     d1 = None
                     d2 = None
@@ -422,6 +429,7 @@ def agglomoration_func(cfg, modality_str, dataset_name_list):
                 start_idx = None
                 end_idx = None
                 
+                # Connect all sequential segments that are the same label
                 for i in range(len(new_ep_subtask_seq)):
                     label = new_ep_subtask_seq[i].label
                     if previous_label is None:
@@ -694,6 +702,7 @@ def compute_small_centers(X, distance_fn):
         cluster_dataset_centers[label][dataset_idx].append(feature)
     
     # Calculate the center for each cluster and dataset_idx as the point with the minimum sum of distances
+    # Finds the feature which is the best center for its corresponding label within the dataset for each label and dataset
     for label, dataset_dict in cluster_dataset_centers.items():
         for dataset_idx, features in dataset_dict.items():
             min_distance_sum = float('inf')
@@ -773,6 +782,7 @@ def assign_or_create_new_cluster(data, ep_idx, X, distance_fn, dataset_idx):
         X.append((data, nearest_label, dataset_idx, ep_idx))
         return X, nearest_label
     
+# Reassign any features of a new but below threshold size label to closest valid label
 def reassign_small_clusters(X, old_K, distance_fn, threshold=10):
     small_centers = compute_small_centers(X, distance_fn)
     
@@ -914,6 +924,8 @@ def add_new_data(cfg, modality_str, old_ep_subtasks_seq, X, old_dataset_name_lis
     label_counts = Counter(labels_all)
     print(label_counts)
     for data in feature:
+        # Add current feature to closest cluster if it is closer to the best center of the cluster compared to the current furthest away feature of that label
+        # Otherwise, create a new cluster for this feature
         X, label_cosine = assign_or_create_new_cluster(data[0], data[1], X, "cosine", new_dataset_idx)
         labels_cosine.append(label_cosine)
 
@@ -929,7 +941,7 @@ def add_new_data(cfg, modality_str, old_ep_subtasks_seq, X, old_dataset_name_lis
     label_counts = Counter(labels_all)
     print(label_counts)
 
-    ## merge nodes
+    ## merge new nodes
     loc_dict = {}
     for (loc, label) in zip(locs, labels_all[len(X_original):]):
         if loc[0] not in loc_dict:
@@ -959,6 +971,7 @@ def add_new_data(cfg, modality_str, old_ep_subtasks_seq, X, old_dataset_name_lis
                     end_idx = node.end_idx
         merge_nodes.append([ep_idx, start_idx, end_idx, label])
 
+    # Update X with newly merged nodes and their feature embeddings
     ep_subtasks_seq = {}
     max_len = 0
     new_feature = []
