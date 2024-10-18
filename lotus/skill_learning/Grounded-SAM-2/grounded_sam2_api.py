@@ -1,7 +1,3 @@
-import argparse
-import os
-import cv2
-import json
 import torch
 import numpy as np
 import supervision as sv
@@ -148,5 +144,7 @@ async def get_embeddings(img: UploadFile = File(...), prompt: str = Form(...)):
 
     print("IMAGE EMBED: ", image_embeddings)
     print("IMAGE EMBED SIZE: ", image_embeddings.size())
+    print("Sparse EMBED SIZE: ", sparse_embeddings.size())
+    print("Dense EMBED SIZE: ", dense_embeddings.size())
 
     return {"sparse_embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}
