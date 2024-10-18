@@ -284,6 +284,7 @@ class SAM2ImagePredictor:
 
         # Transform input prompts
 
+        # here you need to prep the prompts
         mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
             point_coords, point_labels, box, mask_input, normalize_coords
         )
@@ -332,68 +333,6 @@ class SAM2ImagePredictor:
             if len(mask_input.shape) == 3:
                 mask_input = mask_input[None, :, :, :]
         return mask_input, unnorm_coords, labels, unnorm_box
-        
-    @torch.no_grad()
-    def get_prompt_embeddings(
-        self,
-        point_coords: Optional[torch.Tensor],
-        point_labels: Optional[torch.Tensor],
-        boxes: Optional[torch.Tensor] = None,
-        mask_input: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Returns the sparse embeddings for the bbox and point prompts of the currently set image
-        and the dense embeddings for the mask prompts of the currently set image.
-
-        Arguments:
-          point_coords (torch.Tensor or None): A BxNx2 array of point prompts to the
-            model. Each point is in (X,Y) in pixels.
-          point_labels (torch.Tensor or None): A BxN array of labels for the
-            point prompts. 1 indicates a foreground point and 0 indicates a
-            background point.
-          boxes (np.ndarray or None): A Bx4 array given a box prompt to the
-            model, in XYXY format.
-          mask_input (np.ndarray): A low resolution mask input to the model, typically
-            coming from a previous prediction iteration. Has form Bx1xHxW, where
-            for SAM, H=W=256. Masks returned by a previous iteration of the
-            predict method do not need further transformation.
-
-        Returns:
-          torch.Tensor: sparse embeddings for the points and boxes, with shape
-            BxNx(embed_dim), where N is determined by the number of input points
-            and boxes.
-          torch.Tensor: dense embeddings for the masks, in the shape
-            Bx(embed_dim)x(embed_H)x(embed_W)
-        """
-        if not self._is_image_set:
-            raise RuntimeError(
-                "An image must be set with .set_image(...) before mask prediction."
-            )
-
-        if point_coords is not None:
-            concat_points = (point_coords, point_labels)
-        else:
-            concat_points = None
-
-        # Embed prompts
-        if boxes is not None:
-            box_coords = boxes.reshape(-1, 2, 2)
-            box_labels = torch.tensor([[2, 3]], dtype=torch.int, device=boxes.device)
-            box_labels = box_labels.repeat(boxes.size(0), 1)
-            # we merge "boxes" and "points" into a single "concat_points" input (where
-            # boxes are added at the beginning) to sam_prompt_encoder
-            if concat_points is not None:
-                concat_coords = torch.cat([box_coords, concat_points[0]], dim=1)
-                concat_labels = torch.cat([box_labels, concat_points[1]], dim=1)
-                concat_points = (concat_coords, concat_labels)
-            else:
-                concat_points = (box_coords, box_labels)
-
-        return self.model.sam_prompt_encoder(
-            points=concat_points,
-            boxes=None,
-            masks=mask_input,
-        )
 
     @torch.no_grad()
     def _predict(
@@ -471,6 +410,8 @@ class SAM2ImagePredictor:
             masks=mask_input,
         )
 
+        print("Sparse_Embeddings: ", sparse_embeddings)
+
         # Predict masks
         batched_mode = (
             concat_points is not None and concat_points[0].shape[0] > 1
@@ -498,6 +439,157 @@ class SAM2ImagePredictor:
             masks = masks > self.mask_threshold
 
         return masks, iou_predictions, low_res_masks
+    
+
+
+    ''''''''''
+    This is so the user can get the sparse and dense embeddings 
+    '''
+    def predict_sparse_and_dense_embeddings(
+        self,
+        point_coords: Optional[np.ndarray] = None,
+        point_labels: Optional[np.ndarray] = None,
+        box: Optional[np.ndarray] = None,
+        mask_input: Optional[np.ndarray] = None,
+        multimask_output: bool = True,
+        return_logits: bool = False,
+        normalize_coords=True,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Predict masks for the given input prompts, using the currently set image.
+
+        Arguments:
+          point_coords (np.ndarray or None): A Nx2 array of point prompts to the
+            model. Each point is in (X,Y) in pixels.
+          point_labels (np.ndarray or None): A length N array of labels for the
+            point prompts. 1 indicates a foreground point and 0 indicates a
+            background point.
+          box (np.ndarray or None): A length 4 array given a box prompt to the
+            model, in XYXY format.
+          mask_input (np.ndarray): A low resolution mask input to the model, typically
+            coming from a previous prediction iteration. Has form 1xHxW, where
+            for SAM, H=W=256.
+          multimask_output (bool): If true, the model will return three masks.
+            For ambiguous input prompts (such as a single click), this will often
+            produce better masks than a single prediction. If only a single
+            mask is needed, the model's predicted quality score can be used
+            to select the best mask. For non-ambiguous prompts, such as multiple
+            input prompts, multimask_output=False can give better results.
+          return_logits (bool): If true, returns un-thresholded masks logits
+            instead of a binary mask.
+          normalize_coords (bool): If true, the point coordinates will be normalized to the range [0,1] and point_coords is expected to be wrt. image dimensions.
+
+        Returns:
+          (np.ndarray): The output masks in CxHxW format, where C is the
+            number of masks, and (H, W) is the original image size.
+          (np.ndarray): An array of length C containing the model's
+            predictions for the quality of each mask.
+          (np.ndarray): An array of shape CxHxW, where C is the number
+            of masks and H=W=256. These low resolution logits can be passed to
+            a subsequent iteration as mask input.
+        """
+        if not self._is_image_set:
+            raise RuntimeError(
+                "An image must be set with .set_image(...) before mask prediction."
+            )
+
+        # Transform input prompts
+
+        # here you need to prep the prompts, so we need to call this before 
+        # we call get_sparse_and_dense_embeddings, which then calls the sam_prompt_encoder
+        mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
+            point_coords, point_labels, box, mask_input, normalize_coords
+        )
+
+        sparse_embeddings, dense_embeddings = self.get_sparse_and_dense_embeddings(
+            unnorm_coords,
+            labels,
+            unnorm_box,
+            mask_input,
+            multimask_output,
+            return_logits=return_logits,
+        )
+
+        return sparse_embeddings, dense_embeddings
+
+
+    @torch.no_grad()
+    def get_sparse_and_dense_embeddings(
+        self,
+        point_coords: Optional[torch.Tensor],
+        point_labels: Optional[torch.Tensor],
+        boxes: Optional[torch.Tensor] = None,
+        mask_input: Optional[torch.Tensor] = None,
+        multimask_output: bool = True,
+        return_logits: bool = False,
+        img_idx: int = -1,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Predict masks for the given input prompts, using the currently set image.
+        Input prompts are batched torch tensors and are expected to already be
+        transformed to the input frame using SAM2Transforms.
+
+        Arguments:
+          point_coords (torch.Tensor or None): A BxNx2 array of point prompts to the
+            model. Each point is in (X,Y) in pixels.
+          point_labels (torch.Tensor or None): A BxN array of labels for the
+            point prompts. 1 indicates a foreground point and 0 indicates a
+            background point.
+          boxes (np.ndarray or None): A Bx4 array given a box prompt to the
+            model, in XYXY format.
+          mask_input (np.ndarray): A low resolution mask input to the model, typically
+            coming from a previous prediction iteration. Has form Bx1xHxW, where
+            for SAM, H=W=256. Masks returned by a previous iteration of the
+            predict method do not need further transformation.
+          multimask_output (bool): If true, the model will return three masks.
+            For ambiguous input prompts (such as a single click), this will often
+            produce better masks than a single prediction. If only a single
+            mask is needed, the model's predicted quality score can be used
+            to select the best mask. For non-ambiguous prompts, such as multiple
+            input prompts, multimask_output=False can give better results.
+          return_logits (bool): If true, returns un-thresholded masks logits
+            instead of a binary mask.
+
+        Returns:
+          sparse embeddings 
+          dense embeddings 
+        """
+        if not self._is_image_set:
+            raise RuntimeError(
+                "An image must be set with .set_image(...) before mask prediction."
+            )
+
+        if point_coords is not None:
+            concat_points = (point_coords, point_labels)
+        else:
+            concat_points = None
+
+        # Embed prompts
+        if boxes is not None:
+            box_coords = boxes.reshape(-1, 2, 2)
+            box_labels = torch.tensor([[2, 3]], dtype=torch.int, device=boxes.device)
+            box_labels = box_labels.repeat(boxes.size(0), 1)
+            # we merge "boxes" and "points" into a single "concat_points" input (where
+            # boxes are added at the beginning) to sam_prompt_encoder
+            if concat_points is not None:
+                concat_coords = torch.cat([box_coords, concat_points[0]], dim=1)
+                concat_labels = torch.cat([box_labels, concat_points[1]], dim=1)
+                concat_points = (concat_coords, concat_labels)
+            else:
+                concat_points = (box_coords, box_labels)
+
+        sparse_embeddings, dense_embeddings = self.model.sam_prompt_encoder(
+            points=concat_points,
+            boxes=None,
+            masks=mask_input,
+        )
+
+        print("SPARSE EMBED: ", sparse_embeddings)
+
+        return sparse_embeddings, dense_embeddings
+
+
+
 
     def get_image_embedding(self) -> torch.Tensor:
         """
