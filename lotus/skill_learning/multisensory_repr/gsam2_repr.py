@@ -21,6 +21,7 @@ import torch
 import numpy as np
 import supervision as sv
 import pycocotools.mask as mask_util
+import requests
 from pathlib import Path
 from supervision.draw.color import ColorPalette
 from utils.supervision_utils import CUSTOM_COLOR_MAP
@@ -28,85 +29,6 @@ from PIL import Image
 from Gounded-SAM-2.sam2.build_sam import build_sam2
 from Gounded-SAM-2.sam2.sam2_image_predictor import SAM2ImagePredictor
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection 
-
-"""
-Hyper parameters
-"""
-GROUNDING_MODEL = "IDEA-Research/grounding-dino-tiny"
-TEXT_PROMPT = "car. tire."
-# need to replace IMG_PATH with PIL img from hdf5 file
-IMG_PATH = "notebooks/images/truck.jpg"
-SAM2_CHECKPOINT = "./checkpoints/sam2_hiera_large.pt"
-SAM2_MODEL_CONFIG = "sam2_hiera_l.yaml"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-OUTPUT_DIR = Path("outputs/grounded_sam2_hf_model_demo")
-DUMP_JSON_RESULTS = True
-
-# create output directory
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-# environment settings
-# use bfloat16
-torch.autocast(device_type=DEVICE, dtype=torch.bfloat16).__enter__()
-
-if torch.cuda.get_device_properties(0).major >= 8:
-    # turn on tfloat32 for Ampere GPUs (https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices)
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-
-# build SAM2 image predictor
-sam2_checkpoint = SAM2_CHECKPOINT
-model_cfg = SAM2_MODEL_CONFIG
-sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=DEVICE)
-sam2_predictor = SAM2ImagePredictor(sam2_model)
-
-# build grounding dino from huggingface
-model_id = GROUNDING_MODEL
-processor = AutoProcessor.from_pretrained(model_id)
-grounding_model = AutoModelForZeroShotObjectDetection.from_pretrained(model_id).to(DEVICE)
-
-
-# setup the input image and text prompt for SAM 2 and Grounding DINO
-# VERY important: text queries need to be lowercased + end with a dot
-text = TEXT_PROMPT
-img_path = IMG_PATH
-
-image = Image.open(img_path)
-
-sam2_predictor.set_image(np.array(image.convert("RGB")))
-
-inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
-with torch.no_grad():
-    outputs = grounding_model(**inputs)
-
-results = processor.post_process_grounded_object_detection(
-    outputs,
-    inputs.input_ids,
-    box_threshold=0.4,
-    text_threshold=0.3,
-    target_sizes=[image.size[::-1]]
-)
-
-"""
-Results is a list of dict with the following structure:
-[
-    {
-        'scores': tensor([0.7969, 0.6469, 0.6002, 0.4220], device='cuda:0'), 
-        'labels': ['car', 'tire', 'tire', 'tire'], 
-        'boxes': tensor([[  89.3244,  278.6940, 1710.3505,  851.5143],
-                        [1392.4701,  554.4064, 1628.6133,  777.5872],
-                        [ 436.1182,  621.8940,  676.5255,  851.6897],
-                        [1236.0990,  688.3547, 1400.2427,  753.1256]], device='cuda:0')
-    }
-]
-"""
-
-# get the box prompt for SAM 2
-input_boxes = results[0]["boxes"].cpu().numpy()
-
-mask_input, unnorm_coords, labels, unnorm_box = sam2_predictor._prep_prompts(
-            point_coords, point_labels, box, mask_input, normalize_coords
-        )
 
 
 def rescale_feature_map(img_tensor, target_h, target_w, convert_to_numpy=True):
@@ -171,7 +93,7 @@ if __name__ == "__main__":
             for j in range(0, len(agentview_images), args.batch_size):
                 batch_images = agentview_images[j:j + args.batch_size].permute(0, 2, 3, 1).cpu().numpy()
                 resized_images = [cv2.resize(img, (448, 448), interpolation=cv2.INTER_NEAREST) for img in batch_images]
-                features = dinov2.process_images(resized_images)
+                features = dinov2.f(resized_images)
                 agentview_features_batch = rescale_feature_map(torch.as_tensor(features).permute(0, 3, 1, 2), 1, 1, convert_to_numpy=False).squeeze()  # (B, 768)
                 if agentview_features_batch.dim() == 1:
                     agentview_features_batch = agentview_features_batch.unsqueeze(0)

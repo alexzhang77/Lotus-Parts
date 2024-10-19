@@ -551,8 +551,11 @@ class SAM2ImagePredictor:
             instead of a binary mask.
 
         Returns:
-          sparse embeddings 
-          dense embeddings 
+          torch.Tensor: sparse embeddings for the points and boxes, with shape
+            BxNx(embed_dim), where N is determined by the number of input points
+            and boxes.
+          torch.Tensor: dense embeddings for the masks, in the shape
+            Bx(embed_dim)x(embed_H)x(embed_W) 
         """
         if not self._is_image_set:
             raise RuntimeError(

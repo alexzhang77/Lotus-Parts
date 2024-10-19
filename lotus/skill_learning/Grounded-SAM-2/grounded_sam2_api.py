@@ -5,6 +5,7 @@ import pycocotools.mask as mask_util
 from pathlib import Path
 from supervision.draw.color import ColorPalette
 from utils.supervision_utils import CUSTOM_COLOR_MAP
+from pydantic import BaseModel
 from PIL import Image
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
@@ -18,7 +19,8 @@ from fastapi import FastAPI, UploadFile, File, Form
 # Create an instance of FastAPI
 app = FastAPI()
 
-
+class ArrayInput(BaseModel):
+    array: list
 
 '''''''''
 Here we will be loading up the models first
@@ -26,9 +28,10 @@ Here we will be loading up the models first
 
 # main variables we will be using 
 GROUNDING_MODEL = "IDEA-Research/grounding-dino-tiny"
-SAM2_CHECKPOINT = "./checkpoints/sam2.1_hiera_large.pt"
-SAM2_MODEL_CONFIG = "configs/sam2.1/sam2.1_hiera_l.yaml"
+SAM2_CHECKPOINT = "./checkpoints/sam2_hiera_large.pt"
+SAM2_MODEL_CONFIG = "sam2_hiera_l.yaml"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+SAVE_FILE = "./request_image.png"
 
 print("DEVICE TYPE: ", DEVICE)
 
@@ -74,7 +77,7 @@ async def get_embeddings(img: UploadFile = File(...), prompt: str = Form(...)):
     contents = await img.read()
     image = Image.open(BytesIO(contents))
 
-    image.save("/home/davin123/SAM-Server/Grounded-SAM-2/request_image.png", format="PNG")
+    image.save(SAVE_FILE, format="PNG")
 
     print("Predicting image embeddings")
     sam2_predictor.set_image(np.array(image.convert("RGB")))
@@ -114,6 +117,72 @@ async def get_embeddings(img: UploadFile = File(...), prompt: str = Form(...)):
         }
     ]
     """
+
+    # get the box prompt for SAM 2
+    input_boxes = results[0]["boxes"].cpu().numpy()
+
+    print("BOXES: ", input_boxes)
+
+    print("Get sparse and dense embeddings")
+
+
+    sam2_predictor.predict(
+        point_coords=None,
+        point_labels=None,
+        box=input_boxes,
+        multimask_output=False,
+    )
+
+
+    sparse_embeddings, dense_embeddings = sam2_predictor.predict_sparse_and_dense_embeddings(
+        point_coords=None,
+        point_labels=None,
+        box=input_boxes,
+        multimask_output=False,
+    )
+
+    print("Get image embeddings")
+
+    image_embeddings = sam2_predictor.get_image_embedding()
+
+    print("IMAGE EMBED: ", image_embeddings)
+    print("IMAGE EMBED SIZE: ", image_embeddings.size())
+    print("Sparse EMBED SIZE: ", sparse_embeddings.size())
+    print("Dense EMBED SIZE: ", dense_embeddings.size())
+
+    return {"sparse_embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}
+
+@app.post("/get_arr_embeddings")
+async def get_arr_embeddings(img_arr: ArrayInput, prompt: str = Form(...)):
+
+
+    # setup the input image and text prompt for SAM 2 and Grounding DINO
+    # VERY important: text queries need to be lowercased + end with a dot
+    text = prompt
+
+    # prepare the image 
+    np_img = np.array(img_arr.data)
+    image = Image.from_numpy(np_img)
+    image.save(SAVE_FILE, format="PNG")
+
+    sam2_predictor.set_image(np_img)
+
+
+    # Get output from dino
+    inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
+    with torch.no_grad():
+        outputs = grounding_model(**inputs)
+
+
+    # this is to filter out the responses in which the system recieved 
+    results = processor.post_process_grounded_object_detection(
+        outputs,
+        inputs.input_ids,
+        box_threshold=0.4,
+        text_threshold=0.3,
+        target_sizes=[image.size[::-1]]
+    )
+
 
     # get the box prompt for SAM 2
     input_boxes = results[0]["boxes"].cpu().numpy()
