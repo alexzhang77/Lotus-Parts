@@ -62,8 +62,7 @@ def process_images(imgs, prompt):
     all_features = []
     for size in sizes:
         imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
-        print(prompt)
-        features = [np.array(requests.post(URL, json={"img_arr": img.tolist()}, data={"prompt": prompt}).json()) for img in imgs_resized]
+        features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()) for img in imgs_resized]
         new_feats = np.array(features).squeeze()
         new_feats = torch.nn.functional.interpolate(features, (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
         new_feats = rearrange(new_feats, 'b c h w -> b h w c')

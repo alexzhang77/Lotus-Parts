@@ -21,6 +21,7 @@ app = FastAPI()
 
 class ArrayInput(BaseModel):
     img_arr: list
+    prompt: str
 
 '''''''''
 Here we will be loading up the models first
@@ -153,18 +154,18 @@ async def get_embeddings(img: UploadFile = File(...), prompt: str = Form(...)):
     return {"sparse_embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}
 
 @app.post("/get_arr_embeddings")
-async def get_arr_embeddings(img_json: ArrayInput, prompt: str = Form(...)):
+async def get_arr_embeddings(img_json: ArrayInput):
 
 
     # setup the input image and text prompt for SAM 2 and Grounding DINO
     # VERY important: text queries need to be lowercased + end with a dot
-    text = prompt
+    text = img_json.prompt
 
     # prepare the image 
     np_img = np.array(img_json.img_arr)
-    image = Image.from_numpy(np_img)
+    image = Image.fromarray(np.uint8(np_img)).convert('RGB')
     image.save(SAVE_FILE, format="PNG")
-
+    np_img = np.uint8(np_img)
     sam2_predictor.set_image(np_img)
     # Get output from dino
     inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
