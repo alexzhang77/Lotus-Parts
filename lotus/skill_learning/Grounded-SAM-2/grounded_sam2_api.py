@@ -20,7 +20,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 app = FastAPI()
 
 class ArrayInput(BaseModel):
-    array: list
+    img_arr: list
 
 '''''''''
 Here we will be loading up the models first
@@ -153,7 +153,7 @@ async def get_embeddings(img: UploadFile = File(...), prompt: str = Form(...)):
     return {"sparse_embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}
 
 @app.post("/get_arr_embeddings")
-async def get_arr_embeddings(img_arr: ArrayInput, prompt: str = Form(...)):
+async def get_arr_embeddings(img_json: ArrayInput, prompt: str = Form(...)):
 
 
     # setup the input image and text prompt for SAM 2 and Grounding DINO
@@ -161,13 +161,11 @@ async def get_arr_embeddings(img_arr: ArrayInput, prompt: str = Form(...)):
     text = prompt
 
     # prepare the image 
-    np_img = np.array(img_arr.data)
+    np_img = np.array(img_json.img_arr)
     image = Image.from_numpy(np_img)
     image.save(SAVE_FILE, format="PNG")
 
     sam2_predictor.set_image(np_img)
-
-
     # Get output from dino
     inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
     with torch.no_grad():
@@ -215,5 +213,6 @@ async def get_arr_embeddings(img_arr: ArrayInput, prompt: str = Form(...)):
     print("IMAGE EMBED SIZE: ", image_embeddings.size())
     print("Sparse EMBED SIZE: ", sparse_embeddings.size())
     print("Dense EMBED SIZE: ", dense_embeddings.size())
+    f_embeddings = rearrange(torch.cat((image_embeddings,dense_embeddings),0), "b c h w -> (b c) h w").unsqueeze(0)
 
-    return {"sparse_embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}
+    return {"embeddings": f_embeddings.tolist(), "sparse_ embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}

@@ -7,6 +7,10 @@ import h5py
 import os
 from functools import partial
 
+import sys
+sys.path.append('Grounded_SAM_2')
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
 from einops import rearrange
 from easydict import EasyDict
 import torch.backends.cudnn as cudnn
@@ -24,12 +28,23 @@ import pycocotools.mask as mask_util
 import requests
 from pathlib import Path
 from supervision.draw.color import ColorPalette
-from utils.supervision_utils import CUSTOM_COLOR_MAP
 from PIL import Image
-from Gounded-SAM-2.sam2.build_sam import build_sam2
-from Gounded-SAM-2.sam2.sam2_image_predictor import SAM2ImagePredictor
-from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection 
 
+
+URL = "http://127.0.0.1:8000/get_arr_embeddings"
+
+Dataset_Name_List = [
+    "../datasets/libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo",
+    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo",
+]
 
 def rescale_feature_map(img_tensor, target_h, target_w, convert_to_numpy=True):
     img_tensor = torch.nn.functional.interpolate(img_tensor, (target_h, target_w))
@@ -37,6 +52,25 @@ def rescale_feature_map(img_tensor, target_h, target_w, convert_to_numpy=True):
         return img_tensor.cpu().numpy()
     else:
         return img_tensor
+
+def process_images(imgs, prompt):
+    # imgs should be a batch of images, shape (batch_size, height, width, channels)
+    sizes = [448, 224]
+    max_size = max(sizes) // 14
+    batch_size = len(imgs)
+
+    all_features = []
+    for size in sizes:
+        imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
+        print(prompt)
+        features = [np.array(requests.post(URL, json={"img_arr": img.tolist()}, data={"prompt": prompt}).json()) for img in imgs_resized]
+        new_feats = np.array(features).squeeze()
+        new_feats = torch.nn.functional.interpolate(features, (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
+        new_feats = rearrange(new_feats, 'b c h w -> b h w c')
+        all_features.append(new_feats)
+
+    all_features = torch.mean(torch.stack(all_features), dim=0)
+    return all_features
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -93,7 +127,7 @@ if __name__ == "__main__":
             for j in range(0, len(agentview_images), args.batch_size):
                 batch_images = agentview_images[j:j + args.batch_size].permute(0, 2, 3, 1).cpu().numpy()
                 resized_images = [cv2.resize(img, (448, 448), interpolation=cv2.INTER_NEAREST) for img in batch_images]
-                features = dinov2.f(resized_images)
+                features = process_images(resized_images, part_1.replace("_", " "))
                 agentview_features_batch = rescale_feature_map(torch.as_tensor(features).permute(0, 3, 1, 2), 1, 1, convert_to_numpy=False).squeeze()  # (B, 768)
                 if agentview_features_batch.dim() == 1:
                     agentview_features_batch = agentview_features_batch.unsqueeze(0)
@@ -102,7 +136,7 @@ if __name__ == "__main__":
             for j in range(0, len(eye_in_hand_images), args.batch_size):
                 batch_images = eye_in_hand_images[j:j + args.batch_size].permute(0, 2, 3, 1).cpu().numpy()
                 resized_images = [cv2.resize(img, (448, 448), interpolation=cv2.INTER_NEAREST) for img in batch_images]
-                features = dinov2.process_images(resized_images)
+                features = process_images(resized_images, part_1.replace("_", " "))
                 eye_in_hand_features_batch = rescale_feature_map(torch.as_tensor(features).permute(0, 3, 1, 2), 1, 1, convert_to_numpy=False).squeeze()  # (B, 768)
                 if eye_in_hand_features_batch.dim() == 1:
                     eye_in_hand_features_batch = eye_in_hand_features_batch.unsqueeze(0)
