@@ -186,34 +186,31 @@ async def get_arr_embeddings(img_json: ArrayInput):
     # get the box prompt for SAM 2
     input_boxes = results[0]["boxes"].cpu().numpy()
 
-    print("BOXES: ", input_boxes)
+    if (input_boxes.shape != (0,4)):
 
-    print("Get sparse and dense embeddings")
-
-
-    sam2_predictor.predict(
-        point_coords=None,
-        point_labels=None,
-        box=input_boxes,
-        multimask_output=False,
-    )
+        sam2_predictor.predict(
+            point_coords=None,
+            point_labels=None,
+            box=input_boxes,
+            multimask_output=False,
+        )
 
 
-    sparse_embeddings, dense_embeddings = sam2_predictor.predict_sparse_and_dense_embeddings(
-        point_coords=None,
-        point_labels=None,
-        box=input_boxes,
-        multimask_output=False,
-    )
+        sparse_embeddings, dense_embeddings = sam2_predictor.predict_sparse_and_dense_embeddings(
+            point_coords=None,
+            point_labels=None,
+            box=input_boxes,
+            multimask_output=False,
+        )
 
-    print("Get image embeddings")
+        image_embeddings = sam2_predictor.get_image_embedding()
+        f_embeddings = rearrange(torch.cat((image_embeddings,dense_embeddings),0), "b c h w -> (b c) h w").unsqueeze(0)
+    
+    else:
+        f_embeddings = sam2_predictor.get_image_embedding()
+        image_embeddings = f_embeddings
+        sparse_embeddings = np.zeros(0)
+        dense_embeddings = np.zeros(0)
 
-    image_embeddings = sam2_predictor.get_image_embedding()
-
-    print("IMAGE EMBED: ", image_embeddings)
-    print("IMAGE EMBED SIZE: ", image_embeddings.size())
-    print("Sparse EMBED SIZE: ", sparse_embeddings.size())
-    print("Dense EMBED SIZE: ", dense_embeddings.size())
-    f_embeddings = rearrange(torch.cat((image_embeddings,dense_embeddings),0), "b c h w -> (b c) h w").unsqueeze(0)
 
     return {"embeddings": f_embeddings.tolist(), "sparse_ embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}
