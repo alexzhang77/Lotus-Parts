@@ -34,16 +34,16 @@ from PIL import Image
 URL = "http://127.0.0.1:8000/get_arr_embeddings"
 
 Dataset_Name_List = [
-    "../datasets/libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo",
-    "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo",
+    "/media/mnt1/alex/datasets/libero_spatial/pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo",
 ]
 
 def rescale_feature_map(img_tensor, target_h, target_w, convert_to_numpy=True):
@@ -63,8 +63,9 @@ def process_images(imgs, prompt):
     for size in sizes:
         imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
         prompt = prompt[:-5]
-        features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()) for img in imgs_resized]
+        features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()['embeddings']) for img in imgs_resized]
         new_feats = np.array(features).squeeze()
+        print(new_feats.shape)
         new_feats = torch.nn.functional.interpolate(torch.from_numpy(new_feats), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
         new_feats = rearrange(new_feats, 'b c h w -> b h w c')
         all_features.append(new_feats)

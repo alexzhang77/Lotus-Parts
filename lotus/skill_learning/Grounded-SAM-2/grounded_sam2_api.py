@@ -10,6 +10,7 @@ from PIL import Image
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection 
+from einops import rearrange
 
 from io import BytesIO
 
@@ -211,6 +212,4 @@ async def get_arr_embeddings(img_json: ArrayInput):
         image_embeddings = f_embeddings
         sparse_embeddings = np.zeros(0)
         dense_embeddings = np.zeros(0)
-
-
     return {"embeddings": f_embeddings.tolist(), "sparse_ embeddings": sparse_embeddings.tolist(), "dense_embeddings": dense_embeddings.tolist(), "image_embeddings": image_embeddings.tolist()}

@@ -21,7 +21,7 @@ def get_default_path_dict(custom_location=None):
     init_states_default_path = os.path.join(benchmark_root_path, "./init_files")
 
     # This is a default path for localizing all the default datasets
-    dataset_default_path = os.path.join(benchmark_root_path, "../datasets")
+    dataset_default_path = os.path.join(benchmark_root_path, "/media/mnt1/alex/datasets")
 
     # This is a default path for localizing all the default assets
     assets_default_path = os.path.join(benchmark_root_path, "./assets")

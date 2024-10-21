@@ -46,7 +46,6 @@ python libero_benchmark_scripts/download_libero_datasets.py --datasets DATASET
 ```
 where ```DATASET``` is chosen from `[libero_spatial, libero_object, libero_100, libero_goal`.
 
-
 # Getting Started
 
 In the following, we provide example scripts for unsupervised skill discovery, training and evaluation.

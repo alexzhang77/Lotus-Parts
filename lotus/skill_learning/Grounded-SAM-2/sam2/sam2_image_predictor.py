@@ -410,7 +410,6 @@ class SAM2ImagePredictor:
             masks=mask_input,
         )
 
-        print("Sparse_Embeddings: ", sparse_embeddings)
 
         # Predict masks
         batched_mode = (
@@ -586,9 +585,6 @@ class SAM2ImagePredictor:
             boxes=None,
             masks=mask_input,
         )
-
-        print("SPARSE EMBED: ", sparse_embeddings)
-
         return sparse_embeddings, dense_embeddings
 
 
