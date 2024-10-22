@@ -205,7 +205,10 @@ async def get_arr_embeddings(img_json: ArrayInput):
         )
 
         image_embeddings = sam2_predictor.get_image_embedding()
-        f_embeddings = rearrange(torch.cat((image_embeddings,dense_embeddings),0), "b c h w -> (b c) h w").unsqueeze(0)
+        print(f"Image shape: {image_embeddings.shape}")
+        print(f"Dense shape: {dense_embeddings.shape}")
+        f_embeddings = torch.mean(torch.cat((image_embeddings,dense_embeddings),0), 0).unsqueeze(0)
+        print(f"Final shape: {f_embeddings.shape}")
     
     else:
         f_embeddings = sam2_predictor.get_image_embedding()
