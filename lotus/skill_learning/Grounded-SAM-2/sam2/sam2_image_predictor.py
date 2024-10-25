@@ -172,6 +172,9 @@ class SAM2ImagePredictor:
         self._is_batch = True
         logging.info("Image embeddings computed.")
 
+        # return image_embeds to the user 
+        return feats[-1]
+
     def predict_batch(
         self,
         point_coords_batch: List[np.ndarray] = None,
@@ -439,6 +442,11 @@ class SAM2ImagePredictor:
 
         return masks, iou_predictions, low_res_masks
     
+    
+    ''''''''''
+    This is so that a user can get batched sparse and dense embeddings
+    '''
+
 
 
     ''''''''''
