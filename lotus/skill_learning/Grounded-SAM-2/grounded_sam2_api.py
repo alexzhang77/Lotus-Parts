@@ -91,12 +91,13 @@ async def get_arr_embeddings(img_json: ArrayInput):
 
     if (input_boxes.shape != (0,4)):
 
-        sam2_predictor.predict(
-            point_coords=None,
-            point_labels=None,
-            box=input_boxes,
-            multimask_output=False,
-        )
+        # unessecary call
+        # sam2_predictor.predict(
+        #     point_coords=None,
+        #     point_labels=None,
+        #     box=input_boxes,
+        #     multimask_output=False,
+        # )
 
 
         sparse_embeddings, dense_embeddings = sam2_predictor.predict_sparse_and_dense_embeddings(
