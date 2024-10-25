@@ -48,6 +48,8 @@ def process_images(imgs, prompt):
     for size in sizes:
         imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
         prompt = prompt[:-5]
+
+        # here we want to make one call with just imgs_resized, instead of looping
         features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()['embeddings']) for img in imgs_resized]
         new_feats = np.array(features).squeeze()
         print(new_feats.shape)
