@@ -32,7 +32,8 @@ from PIL import Image
 import time 
 
 
-URL = "http://127.0.0.1:8000/get_embeddings"
+# URL = "http://127.0.0.1:8000/get_embeddings"
+URL = "http://127.0.0.1:8000/get_batched_embeddings"
 
 Dataset_Name_List = [
     "../datasets/libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo",
@@ -54,6 +55,38 @@ def rescale_feature_map(img_tensor, target_h, target_w, convert_to_numpy=True):
     else:
         return img_tensor
 
+# def process_images(imgs, prompt):
+#     # imgs should be a batch of images, shape (batch_size, height, width, channels)
+#     sizes = [448, 224]
+#     max_size = max(sizes) // 14
+#     batch_size = len(imgs)
+
+#     all_features = []
+#     for size in sizes:
+#         imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
+#         prompt = prompt[:-5]
+        
+#         print("Number of images: ", len(imgs_resized))
+
+#         start_time = time.time()
+#         features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()['embeddings']) for img in imgs_resized]
+#         end_time = time.time()
+
+#         total_time = end_time - start_time
+
+#         print("Benchmark time: ", total_time)
+
+#         new_feats = np.array(features).squeeze()
+#         print(new_feats.shape)
+#         new_feats = torch.nn.functional.interpolate(torch.from_numpy(new_feats), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
+#         new_feats = rearrange(new_feats, 'b c h w -> b h w c')
+#         all_features.append(new_feats)
+
+#     all_features = torch.mean(torch.stack(all_features), dim=0)
+#     return all_features
+
+
+
 def process_images(imgs, prompt):
     # imgs should be a batch of images, shape (batch_size, height, width, channels)
     sizes = [448, 224]
@@ -68,7 +101,10 @@ def process_images(imgs, prompt):
         print("Number of images: ", len(imgs_resized))
 
         start_time = time.time()
-        features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()['embeddings']) for img in imgs_resized]
+
+        # make all of them into a list first 
+        imgs_list = [img.tolist() for img in imgs_resized]
+        features = requests.post(URL, json={"img_arr": imgs_list, "prompt": prompt}).json()['embeddings']
         end_time = time.time()
 
         total_time = end_time - start_time
@@ -83,6 +119,9 @@ def process_images(imgs, prompt):
 
     all_features = torch.mean(torch.stack(all_features), dim=0)
     return all_features
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
