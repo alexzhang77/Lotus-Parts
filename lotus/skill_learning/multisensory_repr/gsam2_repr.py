@@ -1,22 +1,39 @@
 import torch
+from torchvision import transforms
 import numpy as np
 import cv2
 import argparse
 import h5py
 import os
+from functools import partial
+
 import sys
-from einops import rearrange
-from models.model_utils import safe_cuda
-import os
-import cv2
-import torch
-import numpy as np
-import requests
-
-
 sys.path.append('Grounded_SAM_2')
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-URL = "http://127.0.0.1:8000/get_arr_embeddings"
+
+from einops import rearrange
+from easydict import EasyDict
+import torch.backends.cudnn as cudnn
+
+from sklearn.decomposition import PCA
+from models.model_utils import safe_cuda
+
+import os
+import cv2
+import json
+import torch
+import numpy as np
+import supervision as sv
+import pycocotools.mask as mask_util
+import requests
+from pathlib import Path
+from supervision.draw.color import ColorPalette
+from PIL import Image
+import time 
+
+
+URL = "http://127.0.0.1:8000/get_embeddings"
+
 Dataset_Name_List = [
     "../datasets/libero_spatial/pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate_demo",
     "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_demo",
@@ -29,7 +46,6 @@ Dataset_Name_List = [
     "../datasets/libero_spatial/pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_demo",
     "../datasets/libero_spatial/pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_demo",
 ]
-
 
 def rescale_feature_map(img_tensor, target_h, target_w, convert_to_numpy=True):
     img_tensor = torch.nn.functional.interpolate(img_tensor, (target_h, target_w))
@@ -48,9 +64,17 @@ def process_images(imgs, prompt):
     for size in sizes:
         imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
         prompt = prompt[:-5]
+        
+        print("Number of images: ", len(imgs_resized))
 
-        # here we want to make one call with just imgs_resized, instead of looping
+        start_time = time.time()
         features = [np.array(requests.post(URL, json={"img_arr": img.tolist(), "prompt": prompt}).json()['embeddings']) for img in imgs_resized]
+        end_time = time.time()
+
+        total_time = end_time - start_time
+
+        print("Benchmark time: ", total_time)
+
         new_feats = np.array(features).squeeze()
         print(new_feats.shape)
         new_feats = torch.nn.functional.interpolate(torch.from_numpy(new_feats), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)

@@ -113,6 +113,7 @@ async def get_arr_embeddings(img_json: ArrayInput):
 
 
 
+
 @app.post("/get_batched_embeddings")
 async def get_arr_embeddings(img_json: ArrayInput):
 
