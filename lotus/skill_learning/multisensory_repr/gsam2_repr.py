@@ -113,6 +113,14 @@ def process_images(imgs, prompt):
 
         new_feats = np.array(features).squeeze()
         print(new_feats.shape)
+
+        print("Type: ", type(new_feats))
+
+        print("NEW FEATS: ", new_feats)
+
+        # convert to a np.float16
+        new_feats = np.array(list(new_feats)).astype(np.float16)
+
         new_feats = torch.nn.functional.interpolate(torch.from_numpy(new_feats), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
         new_feats = rearrange(new_feats, 'b c h w -> b h w c')
         all_features.append(new_feats)
@@ -143,7 +151,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--batch-size', 
         type=int, 
-        default=100
+        default=10
     )
     args = parser.parse_args()
     modality_str = args.modality_str

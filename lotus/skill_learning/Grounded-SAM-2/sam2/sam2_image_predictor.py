@@ -634,6 +634,9 @@ class SAM2ImagePredictor:
         # return image_embeds to the user 
         return feats[-1]
 
+
+
+    # TODO: Here we can pass in the image embeddings and properly build up f_embeddings here 
     ''''''''''
     This is so that a user can get batched sparse and dense embeddings
     '''

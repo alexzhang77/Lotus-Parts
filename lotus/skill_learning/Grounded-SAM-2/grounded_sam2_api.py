@@ -119,7 +119,12 @@ async def get_arr_embeddings(img_json: ArrayInput):
 
     # convert each image into a numpy array, np.float16
     imgs = [np.array(img).astype(np.float16) for img in img_json.img_arr]
+
+    print("IMAGES: ", imgs)
+
     batched_img_embeddings = sam2_predictor.image_embeddings_batch(imgs)
+
+    print("batched_img_embeddings: ", batched_img_embeddings)
 
     print(batched_img_embeddings.shape)
 
@@ -207,7 +212,7 @@ async def get_arr_embeddings(img_json: ArrayInput):
         results.append(current_embeddings)
     '''
 
-    return {"embeddings": batched_img_embeddings}
+    return {"embeddings": batched_img_embeddings.tolist()}
 
 
 
