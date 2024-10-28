@@ -117,16 +117,16 @@ async def get_arr_embeddings(img_json: ArrayInput):
 @app.post("/get_batched_embeddings")
 async def get_arr_embeddings(img_json: ArrayInput):
 
-    # convert each image into a numpy array, np.float16
-    imgs = [np.array(img).astype(np.float16) for img in img_json.img_arr]
+    # convert each image into a numpy array, np.float32
+    imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
 
-    print("IMAGES: ", imgs)
+    # print("IMAGES: ", imgs)
 
     batched_img_embeddings = sam2_predictor.image_embeddings_batch(imgs)
 
-    print("batched_img_embeddings: ", batched_img_embeddings)
+    # print("batched_img_embeddings: ", batched_img_embeddings)
 
-    print(batched_img_embeddings.shape)
+    # print(batched_img_embeddings.shape)
 
     '''''''''
     input_boxes_for_batching = []

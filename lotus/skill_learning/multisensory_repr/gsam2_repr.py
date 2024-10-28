@@ -98,7 +98,7 @@ def process_images(imgs, prompt):
         imgs_resized = [cv2.resize(img, (size, size)) for img in imgs]
         prompt = prompt[:-5]
         
-        print("Number of images: ", len(imgs_resized))
+        # print("Number of images: ", len(imgs_resized))
 
         start_time = time.time()
 
@@ -114,12 +114,12 @@ def process_images(imgs, prompt):
         new_feats = np.array(features).squeeze()
         print(new_feats.shape)
 
-        print("Type: ", type(new_feats))
+        # print("Type: ", type(new_feats))
 
-        print("NEW FEATS: ", new_feats)
+        # print("NEW FEATS: ", new_feats)
 
         # convert to a np.float16
-        new_feats = np.array(list(new_feats)).astype(np.float16)
+        new_feats = np.array(list(new_feats)).astype(np.float32)
 
         new_feats = torch.nn.functional.interpolate(torch.from_numpy(new_feats), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
         new_feats = rearrange(new_feats, 'b c h w -> b h w c')
