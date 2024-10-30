@@ -31,6 +31,9 @@ from supervision.draw.color import ColorPalette
 from PIL import Image
 import time 
 
+# to speed up api calls 
+import json
+
 
 # URL = "http://127.0.0.1:8000/get_embeddings"
 URL = "http://127.0.0.1:8000/get_batched_embeddings"
@@ -104,6 +107,10 @@ def process_images(imgs, prompt):
 
         # make all of them into a list first 
         imgs_list = [img.tolist() for img in imgs_resized]
+
+        # with open('/home/davin123/LOTUS-PARTS/Lotus-Parts/lotus/skill_learning/Grounded-SAM-2/api_buffer.json', 'w') as file:
+        #     json.dump(imgs_list, file)
+
         features = requests.post(URL, json={"img_arr": imgs_list, "prompt": prompt}).json()['embeddings']
         end_time = time.time()
 

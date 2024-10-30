@@ -7,12 +7,18 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection 
 from fastapi import FastAPI
 
+# required for api content
+import json
+
 # Create an instance of FastAPI
 app = FastAPI()
 
 class ArrayInput(BaseModel):
     img_arr: list
     prompt: str
+
+# class ArrayInput(BaseModel):
+#     prompt: str
 
 '''''''''
 Here we will be loading up the models first
@@ -38,6 +44,9 @@ sam2_checkpoint = SAM2_CHECKPOINT
 model_cfg = SAM2_MODEL_CONFIG
 sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=DEVICE)
 sam2_predictor = SAM2ImagePredictor(sam2_model)
+
+# set it to batching mode
+sam2_predictor._is_batch = True
 
 # build grounding dino from huggingface
 model_id = GROUNDING_MODEL
@@ -117,21 +126,22 @@ async def get_arr_embeddings(img_json: ArrayInput):
 @app.post("/get_batched_embeddings")
 async def get_arr_embeddings(img_json: ArrayInput):
 
+    print("Calling get_batched_embeddings")
+
     # convert each image into a numpy array, np.float32
     imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
+    # with open('/home/davin123/LOTUS-PARTS/Lotus-Parts/lotus/skill_learning/Grounded-SAM-2/api_buffer.json', 'w') as file:
+    #    imgs = json.load(file)
 
-    # print("IMAGES: ", imgs)
-
+    print("GET embeddings")
     batched_img_embeddings = sam2_predictor.image_embeddings_batch(imgs)
 
-    # print("batched_img_embeddings: ", batched_img_embeddings)
+    print("Got imbeddings")
 
-    # print(batched_img_embeddings.shape)
-
-    '''''''''
+    # input boxes for dense and sparse embeddings
     input_boxes_for_batching = []
+    # for img in imgs:
     for img in img_json.img_arr:
-
         # setup the input image and text prompt for SAM 2 and Grounding DINO
         # VERY important: text queries need to be lowercased + end with a dot
         text = img_json.prompt
@@ -162,67 +172,26 @@ async def get_arr_embeddings(img_json: ArrayInput):
         input_boxes = results[0]["boxes"].cpu().numpy()
 
         input_boxes_for_batching.append(input_boxes)
-    '''
 
-    ''''''''''
-    f_embeddings = None
-    sparse_embeddings = None
-    dense_embeddings = None
-    image_embeddings = None
+    print("Got boxes")
 
+    # pass in the image_embeddings and also pass in the number of images
+    f_embeddings = sam2_predictor.get_sparse_and_dense_embeddings_batch(
+        point_coords_batch=None,
+        point_labels_batch=None,
+        box_batch=input_boxes_for_batching,
+        mask_input_batch=None,
+        image_embeddings=batched_img_embeddings,
+        num_of_images=len(imgs),
+        multimask_output=False,
+    )
 
-        # only do this if there are detections
-        if (input_boxes.shape != (0,4)):
-
-            # unessecary call
-            # sam2_predictor.predict(
-            #     point_coords=None,
-            #     point_labels=None,
-            #     box=input_boxes,
-            #     multimask_output=False,
-            # )
-
-
-            sparse_embeddings, dense_embeddings = sam2_predictor.predict_sparse_and_dense_embeddings(
-                point_coords=None,
-                point_labels=None,
-                box=input_boxes,
-                multimask_output=False,
-            )
-
-            image_embeddings = sam2_predictor.get_image_embedding()
-            print(f"Image shape: {image_embeddings.shape}")
-            print(f"Dense shape: {dense_embeddings.shape}")
-            f_embeddings = torch.mean(torch.cat((image_embeddings,dense_embeddings),0), 0).unsqueeze(0)
-            print(f"Final shape: {f_embeddings.shape}")
-        
-        else:
-            f_embeddings = sam2_predictor.get_image_embedding()
-            image_embeddings = f_embeddings
-            sparse_embeddings = np.zeros(0)
-            dense_embeddings = np.zeros(0)
-
-        current_embeddings = {
-            "embeddings": f_embeddings.tolist(),
-            "sparse_ embeddings": sparse_embeddings.tolist(),
-            "dense_embeddings": dense_embeddings.tolist(),
-            "image_embeddings": image_embeddings.tolist()
-        }
-
-        results.append(current_embeddings)
-    '''
-
-    return {"embeddings": batched_img_embeddings.tolist()}
-
-
-
-
-
-
-
-
-
-
+    # convert into a list 
+    print("converting to list")
+    f_embeddings_converted = [f_embed.tolist() for f_embed in f_embeddings]
+    print("converted")
+    
+    return {"embeddings": f_embeddings_converted}
 
 
 
@@ -231,11 +200,21 @@ async def get_arr_embeddings(img_json: ArrayInput):
 # @app.post("/get_batched_embeddings")
 # async def get_arr_embeddings(img_json: ArrayInput):
 
-#     # these are the results of the batched call
-#     results = []
+#     # convert each image into a numpy array, np.float32
+#     imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
 
+#     # print("IMAGES: ", imgs)
+
+#     batched_img_embeddings = sam2_predictor.image_embeddings_batch(imgs)
+
+#     print("TYPE: ", type(batched_img_embeddings))
+
+#     # print("batched_img_embeddings: ", batched_img_embeddings)
+
+#     # print(batched_img_embeddings.shape)
+
+#     input_boxes_for_batching = []
 #     for img in img_json.img_arr:
-
 #         # setup the input image and text prompt for SAM 2 and Grounding DINO
 #         # VERY important: text queries need to be lowercased + end with a dot
 #         text = img_json.prompt
@@ -265,51 +244,23 @@ async def get_arr_embeddings(img_json: ArrayInput):
 #         # get the box prompt for SAM 2
 #         input_boxes = results[0]["boxes"].cpu().numpy()
 
+#         input_boxes_for_batching.append(input_boxes)
 
-#         f_embeddings = None
-#         sparse_embeddings = None
-#         dense_embeddings = None
-#         image_embeddings = None
+#     f_embeddings = sam2_predictor.get_sparse_and_dense_embeddings_batch(
+#         point_coords_batch=None,
+#         point_labels_batch=None,
+#         box_batch=input_boxes_for_batching,
+#         mask_input_batch=None,
+#         image_embeddings=batched_img_embeddings,
+#         multimask_output=False,
+#     )
 
+#     print("F EMBEDDINGS: ", f_embeddings)
 
-#         # only do this if there are detections
-#         if (input_boxes.shape != (0,4)):
+#     print("F_EMBED SHAPE: ", type(f_embeddings))
 
-#             # unessecary call
-#             # sam2_predictor.predict(
-#             #     point_coords=None,
-#             #     point_labels=None,
-#             #     box=input_boxes,
-#             #     multimask_output=False,
-#             # )
+#     print("ELEMENT TYPE: ", type(f_embeddings[0]))
 
+#     f_embeddings_converted = [f_embed.tolist() for f_embed in f_embeddings]
 
-#             sparse_embeddings, dense_embeddings = sam2_predictor.predict_sparse_and_dense_embeddings(
-#                 point_coords=None,
-#                 point_labels=None,
-#                 box=input_boxes,
-#                 multimask_output=False,
-#             )
-
-#             image_embeddings = sam2_predictor.get_image_embedding()
-#             print(f"Image shape: {image_embeddings.shape}")
-#             print(f"Dense shape: {dense_embeddings.shape}")
-#             f_embeddings = torch.mean(torch.cat((image_embeddings,dense_embeddings),0), 0).unsqueeze(0)
-#             print(f"Final shape: {f_embeddings.shape}")
-        
-#         else:
-#             f_embeddings = sam2_predictor.get_image_embedding()
-#             image_embeddings = f_embeddings
-#             sparse_embeddings = np.zeros(0)
-#             dense_embeddings = np.zeros(0)
-
-#         current_embeddings = {
-#             "embeddings": f_embeddings.tolist(),
-#             "sparse_ embeddings": sparse_embeddings.tolist(),
-#             "dense_embeddings": dense_embeddings.tolist(),
-#             "image_embeddings": image_embeddings.tolist()
-#         }
-
-#         results.append(current_embeddings)
-
-#     return {"batch_embeddings": results}
+#     return {"embeddings": f_embeddings_converted}
