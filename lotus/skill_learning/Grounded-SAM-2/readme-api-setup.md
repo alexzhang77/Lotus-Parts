@@ -1,5 +1,5 @@
 # set up steps for server
-1. `cd Grounded-SAM-2`
+1. `cd lotus/skill_learning/Grounded-SAM-2`
 2. `conda create --name SAM-Endpoint python=3.10`
 3. `conda activate SAM-Endpoint`
 4. `pip install -r requirements.txt`
