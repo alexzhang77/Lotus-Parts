@@ -284,10 +284,10 @@ class SAM2ImagePredictor:
 
         # in the case that you do have detections
         if box is not None:
-            print("************************************GOT A BOX****************************************************")
-            print("IMAGE INDEX OUT OF RANGE: ", img_idx)
-            print("LEN OF ORIG_HW: ", len(self._orig_hw))
-            print("LEN OF ORIG_HW PARAM: ", len(orig_hw))
+            # print("************************************GOT A BOX****************************************************")
+            # print("IMAGE INDEX OUT OF RANGE: ", img_idx)
+            # print("LEN OF ORIG_HW: ", len(self._orig_hw))
+            # print("LEN OF ORIG_HW PARAM: ", len(orig_hw))
             box = torch.as_tensor(box, dtype=torch.float, device=self.device)
             unnorm_box = self._transforms.transform_boxes(
                 box, normalize=normalize_coords, orig_hw=orig_hw[img_idx]
@@ -615,7 +615,7 @@ class SAM2ImagePredictor:
             ), "Images are expected to be an np.ndarray in RGB format, and of shape  HWC"
             self._orig_hw.append(image.shape[:2])
 
-        print("orig_HW: ", len(self._orig_hw))
+        # print("orig_HW: ", len(self._orig_hw))
 
         # Transform the image to the form expected by the model
         img_batch = self._transforms.forward_batch(image_list)
@@ -666,7 +666,7 @@ class SAM2ImagePredictor:
         It returns a tuple of lists of masks, ious, and low_res_masks_logits.
         """
 
-        print("BATCH MODE: ", self._is_batch)
+        # print("BATCH MODE: ", self._is_batch)
 
         # assert self._is_batch, "This function should only be used when in batched mode"
         # if not self._is_image_set:
@@ -712,8 +712,8 @@ class SAM2ImagePredictor:
                     mask_input=mask_input,
                 )
 
-                print("IMAGE EMBED SHAPE: ", image_embeddings[img_idx].shape)
-                print("DENSE EMBEDDINGS: ", dense_embeddings.shape)
+                # print("IMAGE EMBED SHAPE: ", image_embeddings[img_idx].shape)
+                # print("DENSE EMBEDDINGS: ", dense_embeddings.shape)
 
                 image_embeddings_for_meanpool = image_embeddings[img_idx].unsqueeze(0)
 
@@ -721,15 +721,15 @@ class SAM2ImagePredictor:
 
                 f_embeddings = f_embeddings.squeeze(0)
 
-                print("F_EMBED SIZE (BOTH): ", f_embeddings.shape)
+                # print("F_EMBED SIZE (BOTH): ", f_embeddings.shape)
                 all_f_embeddings.append(f_embeddings)
             
             else:
                 f_embeddings = image_embeddings[img_idx]
-                print("F_EMBED SIZE (ONLY IMAGE): ", f_embeddings.shape)
+                # print("F_EMBED SIZE (ONLY IMAGE): ", f_embeddings.shape)
                 all_f_embeddings.append(f_embeddings)
 
-        print("F_EMBEDS SHAPE: ", len(all_f_embeddings))        
+        # print("F_EMBEDS SHAPE: ", len(all_f_embeddings))        
 
         return all_f_embeddings
 

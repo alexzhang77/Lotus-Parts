@@ -66,9 +66,9 @@ async def get_arr_embeddings(img_json: ArrayInput):
     # prepare the image 
     np_img = np.array(img_json.img_arr)
     image = Image.fromarray(np.uint8(np_img)).convert('RGB')
-    image.save(SAVE_FILE, format="PNG")
-    np_img = np.uint8(np_img)
-    sam2_predictor.set_image(np_img)
+    # image.save(SAVE_FILE, format="PNG")
+    # np_img = np.uint8(np_img)
+    sam2_predictor.set_image(image)
     # Get output from dino
     inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
     with torch.no_grad():
@@ -126,7 +126,7 @@ async def get_arr_embeddings(img_json: ArrayInput):
 @app.post("/get_batched_embeddings")
 async def get_arr_embeddings(img_json: ArrayInput):
 
-    print("Calling get_batched_embeddings")
+    # print("Calling get_batched_embeddings")
 
     # convert each image into a numpy array, np.float32
     # imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
@@ -137,10 +137,10 @@ async def get_arr_embeddings(img_json: ArrayInput):
 
     # print("TYPE OF imgs: ", type(imgs))
 
-    print("GET embeddings")
+    # print("GET embeddings")
     batched_img_embeddings, batched_orig_hw = sam2_predictor.image_embeddings_batch(imgs)
 
-    print("Got imbeddings")
+    # print("Got imbeddings")
 
     # input boxes for dense and sparse embeddings
     input_boxes_for_batching = []
@@ -153,9 +153,9 @@ async def get_arr_embeddings(img_json: ArrayInput):
         # prepare the image 
         np_img = np.array(img)
         image = Image.fromarray(np.uint8(np_img)).convert('RGB')
-        image.save(SAVE_FILE, format="PNG")
-        np_img = np.uint8(np_img)
-        sam2_predictor.set_image(np_img)
+        # image.save(SAVE_FILE, format="PNG")
+        # np_img = np.uint8(np_img)
+        sam2_predictor.set_image(image)
         # Get output from dino
         inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
         with torch.no_grad():
@@ -177,7 +177,7 @@ async def get_arr_embeddings(img_json: ArrayInput):
 
         input_boxes_for_batching.append(input_boxes)
 
-    print("Got boxes")
+    # print("Got boxes")
 
     # pass in the image_embeddings and also pass in the number of images
     f_embeddings = sam2_predictor.get_sparse_and_dense_embeddings_batch(
@@ -192,87 +192,23 @@ async def get_arr_embeddings(img_json: ArrayInput):
     )
 
     # convert into a list 
-    print("converting to list")
+    # print("converting to list")
 
-    for array in f_embeddings:
-        print("SHAPE RETURN: ", array.shape)
+    # for array in f_embeddings:
+    #    print("SHAPE RETURN: ", array.shape)
 
     f_embeddings_converted = [f_embed.tolist() for f_embed in f_embeddings]
-    print("converted")
+    # print("converted")
 
-    for list in f_embeddings_converted:
-        print("List length: ", len(list))
+    # for list in f_embeddings_converted:
+    #    print("List length: ", len(list))
     
     return {"embeddings": f_embeddings_converted}
 
 
 
-
-
-# @app.post("/get_batched_embeddings")
-# async def get_arr_embeddings(img_json: ArrayInput):
-
-#     # convert each image into a numpy array, np.float32
-#     imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
-
-#     # print("IMAGES: ", imgs)
-
-#     batched_img_embeddings = sam2_predictor.image_embeddings_batch(imgs)
-
-#     print("TYPE: ", type(batched_img_embeddings))
-
-#     # print("batched_img_embeddings: ", batched_img_embeddings)
-
-#     # print(batched_img_embeddings.shape)
-
-#     input_boxes_for_batching = []
-#     for img in img_json.img_arr:
-#         # setup the input image and text prompt for SAM 2 and Grounding DINO
-#         # VERY important: text queries need to be lowercased + end with a dot
-#         text = img_json.prompt
-
-#         # prepare the image 
-#         np_img = np.array(img)
-#         image = Image.fromarray(np.uint8(np_img)).convert('RGB')
-#         image.save(SAVE_FILE, format="PNG")
-#         np_img = np.uint8(np_img)
-#         sam2_predictor.set_image(np_img)
-#         # Get output from dino
-#         inputs = processor(images=image, text=text, return_tensors="pt").to(DEVICE)
-#         with torch.no_grad():
-#             outputs = grounding_model(**inputs)
-
-
-#         # this is to filter out the responses in which the system recieved 
-#         results = processor.post_process_grounded_object_detection(
-#             outputs,
-#             inputs.input_ids,
-#             box_threshold=0.4,
-#             text_threshold=0.3,
-#             target_sizes=[image.size[::-1]]
-#         )
-
-
-#         # get the box prompt for SAM 2
-#         input_boxes = results[0]["boxes"].cpu().numpy()
-
-#         input_boxes_for_batching.append(input_boxes)
-
-#     f_embeddings = sam2_predictor.get_sparse_and_dense_embeddings_batch(
-#         point_coords_batch=None,
-#         point_labels_batch=None,
-#         box_batch=input_boxes_for_batching,
-#         mask_input_batch=None,
-#         image_embeddings=batched_img_embeddings,
-#         multimask_output=False,
-#     )
-
-#     print("F EMBEDDINGS: ", f_embeddings)
-
-#     print("F_EMBED SHAPE: ", type(f_embeddings))
-
-#     print("ELEMENT TYPE: ", type(f_embeddings[0]))
-
-#     f_embeddings_converted = [f_embed.tolist() for f_embed in f_embeddings]
-
-#     return {"embeddings": f_embeddings_converted}
+# Here we will be working with gPRC to use HTTP/2 
+# this should speed up the runtime by about 5-7 times 
+# esepcially in cases where you have a lot of data 
+# and in this case this is especially true given that we 
+# have a lot of image data 

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package sam2;
+
+service SAM2Service {
+  rpc GetBatchedEmbeddings (ArrayInput) returns (ArrayOutput) {}
+}
+
+message ArrayInput {
+  repeated float img_arr = 1;
+  string prompt = 2;
+}
+
+message ArrayOutput {
+  repeated Embedding embeddings = 1;
+}
+
+message Embedding {
+  repeated float values = 1;
+}
