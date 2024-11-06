@@ -9,6 +9,7 @@ from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 import sam2_service_pb2
 import sam2_service_pb2_grpc
 
+
 # Initialize models and predictors as in your original code
 GROUNDING_MODEL = "IDEA-Research/grounding-dino-tiny"
 SAM2_CHECKPOINT = "./checkpoints/sam2_hiera_large.pt"
