@@ -109,7 +109,7 @@ def process_images(imgs, prompt):
         imgs_list = [img.tolist() for img in imgs_resized]
 
         # with open('/home/davin123/LOTUS-PARTS/Lotus-Parts/lotus/skill_learning/Grounded-SAM-2/api_buffer.json', 'w') as file:
-        #    json.dump(imgs_list, file)
+        #     json.dump(imgs_list, file)
 
         features = requests.post(URL, json={"img_arr": imgs_list, "prompt": prompt}).json()['embeddings']
         end_time = time.time()
@@ -118,12 +118,7 @@ def process_images(imgs, prompt):
 
         print("Benchmark time: ", total_time)
 
-        new_feats = np.array(features)
-
-        print(new_feats.shape)
-
-        new_feats = new_feats.squeeze()
-
+        new_feats = np.array(features).squeeze()
         print(new_feats.shape)
 
         # print("Type: ", type(new_feats))
@@ -131,23 +126,11 @@ def process_images(imgs, prompt):
         # print("NEW FEATS: ", new_feats)
 
         # convert to a np.float16
+        new_feats = np.array(list(new_feats)).astype(np.float32)
 
-        # print(new_feats.shape)
-
-        feats_arrays = []
-
-        for feat in new_feats:
-            print("TYPE: ", type(feat))
-            if type(feat) == "np.ndarray":
-                feats_arrays.append(feat)
-            else:
-                feats_arrays.append(np.array(feat))
-
-        feats_arrays = np.array(list(feats_arrays)).astype(np.float32)
-
-        feats_arrays = torch.nn.functional.interpolate(torch.from_numpy(feats_arrays), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
-        feats_arrays = rearrange(feats_arrays, 'b c h w -> b h w c')
-        all_features.append(feats_arrays)
+        new_feats = torch.nn.functional.interpolate(torch.from_numpy(new_feats), (max_size, max_size), mode="bilinear", align_corners=True, antialias=True)
+        new_feats = rearrange(new_feats, 'b c h w -> b h w c')
+        all_features.append(new_feats)
 
     all_features = torch.mean(torch.stack(all_features), dim=0)
     return all_features

@@ -264,7 +264,7 @@ class SAM2ImagePredictor:
         return masks_np, iou_predictions_np, low_res_masks_np
 
     def _prep_prompts(
-        self, point_coords, point_labels, box, mask_logits, normalize_coords, orig_hw, img_idx=-1
+        self, point_coords, point_labels, box, mask_logits, normalize_coords, img_idx=-1
     ):
 
         unnorm_coords, labels, unnorm_box, mask_input = None, None, None, None
@@ -281,16 +281,17 @@ class SAM2ImagePredictor:
             labels = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
             if len(unnorm_coords.shape) == 2:
                 unnorm_coords, labels = unnorm_coords[None, ...], labels[None, ...]
-
-        # in the case that you do have detections
         if box is not None:
+<<<<<<< HEAD
             # print("************************************GOT A BOX****************************************************")
             # print("IMAGE INDEX OUT OF RANGE: ", img_idx)
             # print("LEN OF ORIG_HW: ", len(self._orig_hw))
             # print("LEN OF ORIG_HW PARAM: ", len(orig_hw))
+=======
+>>>>>>> parent of 0dc8871 (endpoint works for detections now)
             box = torch.as_tensor(box, dtype=torch.float, device=self.device)
             unnorm_box = self._transforms.transform_boxes(
-                box, normalize=normalize_coords, orig_hw=orig_hw[img_idx]
+                box, normalize=normalize_coords, orig_hw=self._orig_hw[img_idx]
             )  # Bx2x2
         if mask_logits is not None:
             mask_input = torch.as_tensor(
@@ -614,9 +615,12 @@ class SAM2ImagePredictor:
                 image, np.ndarray
             ), "Images are expected to be an np.ndarray in RGB format, and of shape  HWC"
             self._orig_hw.append(image.shape[:2])
+<<<<<<< HEAD
 
         # print("orig_HW: ", len(self._orig_hw))
 
+=======
+>>>>>>> parent of 0dc8871 (endpoint works for detections now)
         # Transform the image to the form expected by the model
         img_batch = self._transforms.forward_batch(image_list)
         img_batch = img_batch.to(self.device)
@@ -641,7 +645,7 @@ class SAM2ImagePredictor:
         logging.info("Image embeddings computed.")
 
         # return image_embeds to the user 
-        return feats[-1], self._orig_hw
+        return feats[-1]
 
 
 
@@ -657,7 +661,6 @@ class SAM2ImagePredictor:
         mask_input_batch: List[np.ndarray] = None,
         image_embeddings: torch.Tensor = None,
         num_of_images: int = None,
-        orig_hw: list = None,
         multimask_output: bool = True,
         return_logits: bool = False,
         normalize_coords=True,
@@ -691,9 +694,6 @@ class SAM2ImagePredictor:
                 mask_input = (
                     mask_input_batch[img_idx] if mask_input_batch is not None else None
                 )
-
-                # here when we are prepping prompts, we want to pass 
-                # in orig_hw which we can use 
                 mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
                     point_coords,
                     point_labels,
@@ -701,17 +701,20 @@ class SAM2ImagePredictor:
                     mask_input,
                     normalize_coords,
                     img_idx=img_idx,
-                    orig_hw=orig_hw,
                 )
 
                 # Here we will be making predictions
                 _, dense_embeddings = self.get_sparse_and_dense_embeddings_batched(
                     unnorm_coords,
                     labels,
-                    boxes=unnorm_box,
-                    mask_input=mask_input,
+                    unnorm_box,
+                    mask_input,
+                    multimask_output,
+                    return_logits=return_logits,
+                    img_idx=img_idx,
                 )
 
+<<<<<<< HEAD
                 # print("IMAGE EMBED SHAPE: ", image_embeddings[img_idx].shape)
                 # print("DENSE EMBEDDINGS: ", dense_embeddings.shape)
 
@@ -723,6 +726,11 @@ class SAM2ImagePredictor:
 
                 # print("F_EMBED SIZE (BOTH): ", f_embeddings.shape)
                 all_f_embeddings.append(f_embeddings)
+=======
+                f_embeddings = torch.mean(torch.cat((image_embeddings[img_idx],dense_embeddings),0), 0).unsqueeze(0)
+                print("F_EMBED SIZE (BOTH): ", f_embeddings.shape)
+                all_f_embeddings.append(f_embeddings.tolist())
+>>>>>>> parent of 0dc8871 (endpoint works for detections now)
             
             else:
                 f_embeddings = image_embeddings[img_idx]

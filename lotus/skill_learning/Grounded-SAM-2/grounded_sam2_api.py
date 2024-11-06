@@ -129,23 +129,24 @@ async def get_arr_embeddings(img_json: ArrayInput):
     # print("Calling get_batched_embeddings")
 
     # convert each image into a numpy array, np.float32
-    # imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
-    # with open('/home/davin123/LOTUS-PARTS/Lotus-Parts/lotus/skill_learning/Grounded-SAM-2/api_buffer.json', 'r') as file:
-    #   imgs = json.load(file)
-    
     imgs = [np.array(img).astype(np.float32) for img in img_json.img_arr]
+    # with open('/home/davin123/LOTUS-PARTS/Lotus-Parts/lotus/skill_learning/Grounded-SAM-2/api_buffer.json', 'w') as file:
+    #    imgs = json.load(file)
 
-    # print("TYPE OF imgs: ", type(imgs))
-
+<<<<<<< HEAD
     # print("GET embeddings")
     batched_img_embeddings, batched_orig_hw = sam2_predictor.image_embeddings_batch(imgs)
+=======
+    print("GET embeddings")
+    batched_img_embeddings = sam2_predictor.image_embeddings_batch(imgs)
+>>>>>>> parent of 0dc8871 (endpoint works for detections now)
 
     # print("Got imbeddings")
 
     # input boxes for dense and sparse embeddings
     input_boxes_for_batching = []
     # for img in imgs:
-    for img in imgs:
+    for img in img_json.img_arr:
         # setup the input image and text prompt for SAM 2 and Grounding DINO
         # VERY important: text queries need to be lowercased + end with a dot
         text = img_json.prompt
@@ -187,11 +188,11 @@ async def get_arr_embeddings(img_json: ArrayInput):
         mask_input_batch=None,
         image_embeddings=batched_img_embeddings,
         num_of_images=len(imgs),
-        orig_hw=batched_orig_hw,
         multimask_output=False,
     )
 
     # convert into a list 
+<<<<<<< HEAD
     # print("converting to list")
 
     # for array in f_embeddings:
@@ -202,6 +203,11 @@ async def get_arr_embeddings(img_json: ArrayInput):
 
     # for list in f_embeddings_converted:
     #    print("List length: ", len(list))
+=======
+    print("converting to list")
+    f_embeddings_converted = [f_embed.tolist() for f_embed in f_embeddings]
+    print("converted")
+>>>>>>> parent of 0dc8871 (endpoint works for detections now)
     
     return {"embeddings": f_embeddings_converted}
 
